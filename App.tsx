@@ -380,7 +380,7 @@ const App: React.FC = () => {
       {/* Footer */}
       <footer className="mt-20 py-10 border-t border-slate-200 bg-white">
         <div className="max-w-6xl mx-auto px-4 text-center">
-          <p className="text-sm text-slate-400">&copy; 2024 Hotel Loyalty Analytics System. All rights reserved.</p>
+          <p className="text-sm text-slate-400">&copy; 2026 Hotel Loyalty Analytics System. All rights reserved.</p>
         </div>
       </footer>
     </div>
