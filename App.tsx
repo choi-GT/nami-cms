@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { parseExcel, analyzeLoyalty } from './utils/excelProcessor.ts';
 import { MatchResult } from './types.ts';
+import PythonCodeExport from './components/PythonCodeExport.tsx';
 
 const App: React.FC = () => {
   const [historyFile, setHistoryFile] = useState<File | null>(null);
@@ -11,6 +12,7 @@ const App: React.FC = () => {
   const [results, setResults] = useState<MatchResult[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<MatchResult | null>(null);
+  const [showPythonCode, setShowPythonCode] = useState(false);
 
   const handleAnalysis = async () => {
     if (!historyFile || !todayFile) {
@@ -54,213 +56,235 @@ const App: React.FC = () => {
             </div>
             <h1 className="text-xl font-bold text-slate-800 tracking-tight">호텔 단골 고객 분석 도구</h1>
           </div>
-          <div className="text-xs text-slate-500 font-medium bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
-            Hotel Analytics v1.0
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => setShowPythonCode(!showPythonCode)}
+              className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition"
+            >
+              {showPythonCode ? '분석 도구로 돌아가기' : 'Python 코드 보기'}
+            </button>
+            <div className="text-xs text-slate-500 font-medium bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
+              Hotel Analytics v1.0
+            </div>
           </div>
         </div>
       </header>
 
       <main className="max-w-5xl mx-auto px-4 pt-10">
-        {/* Intro Section */}
-        <div className="mb-10 text-center">
-          <h2 className="text-3xl font-extrabold text-slate-900 mb-3">단골 고객을 즉시 확인하세요</h2>
-          <p className="text-slate-600 max-w-2xl mx-auto">
-            과거 예약 이력과 오늘의 예약 명단을 비교하여, 재방문 횟수가 높은 VIP 고객을 자동으로 식별합니다.
-          </p>
-        </div>
-
-        {/* Input Controls */}
-        <div className="grid md:grid-cols-2 gap-8 mb-10">
-          <div className="space-y-6">
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm transition hover:shadow-md">
-              <label className="block text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
-                <i className="fas fa-history text-indigo-500"></i> 1단계: 과거 예약 이력 파일
-              </label>
-              <div className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-colors ${historyFile ? 'border-indigo-400 bg-indigo-50' : 'border-slate-300 hover:border-indigo-400'}`}>
-                <input 
-                  type="file" 
-                  accept=".xlsx, .xls"
-                  onChange={(e) => setHistoryFile(e.target.files?.[0] || null)}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
-                />
-                <div className="flex flex-col items-center">
-                  <i className={`fas ${historyFile ? 'fa-file-excel text-indigo-600' : 'fa-cloud-upload-alt text-slate-400'} text-4xl mb-3`}></i>
-                  <span className="text-sm font-medium text-slate-600">
-                    {historyFile ? historyFile.name : 'Excel 파일을 드래그하거나 클릭하여 업로드'}
-                  </span>
-                  <p className="text-xs text-slate-400 mt-2">대상: "입실 완료" 명단</p>
-                </div>
-              </div>
+        {showPythonCode ? (
+          <div className="animate-in fade-in duration-500">
+            <div className="mb-6 flex items-center gap-4">
+               <button onClick={() => setShowPythonCode(false)} className="bg-white p-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition">
+                  <i className="fas fa-arrow-left text-slate-600"></i>
+               </button>
+               <h2 className="text-2xl font-bold text-slate-800">개발자용 분석 소스코드</h2>
             </div>
-
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm transition hover:shadow-md">
-              <label className="block text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
-                <i className="fas fa-calendar-day text-emerald-500"></i> 2단계: 오늘 예약 명단 파일
-              </label>
-              <div className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-colors ${todayFile ? 'border-emerald-400 bg-emerald-50' : 'border-slate-300 hover:border-emerald-400'}`}>
-                <input 
-                  type="file" 
-                  accept=".xlsx, .xls"
-                  onChange={(e) => setTodayFile(e.target.files?.[0] || null)}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
-                />
-                <div className="flex flex-col items-center">
-                  <i className={`fas ${todayFile ? 'fa-file-excel text-emerald-600' : 'fa-cloud-upload-alt text-slate-400'} text-4xl mb-3`}></i>
-                  <span className="text-sm font-medium text-slate-600">
-                    {todayFile ? todayFile.name : 'Excel 파일을 드래그하거나 클릭하여 업로드'}
-                  </span>
-                  <p className="text-xs text-slate-400 mt-2">대상: "예약 대기", "입금 완료" 명단</p>
-                </div>
-              </div>
-            </div>
+            <PythonCodeExport />
           </div>
+        ) : (
+          <>
+            {/* Intro Section */}
+            <div className="mb-10 text-center">
+              <h2 className="text-3xl font-extrabold text-slate-900 mb-3">단골 고객을 즉시 확인하세요</h2>
+              <p className="text-slate-600 max-w-2xl mx-auto">
+                과거 예약 이력과 오늘의 예약 명단을 비교하여, 재방문 횟수가 높은 VIP 고객을 자동으로 식별합니다.
+              </p>
+            </div>
 
-          <div className="flex flex-col justify-between">
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-              <h3 className="text-sm font-bold text-slate-700 mb-6 flex items-center gap-2">
-                <i className="fas fa-cog text-slate-400"></i> 분석 설정
-              </h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-2">단골 기준 방문 횟수 (N회 이상)</label>
-                  <div className="flex items-center gap-4">
+            {/* Input Controls */}
+            <div className="grid md:grid-cols-2 gap-8 mb-10">
+              <div className="space-y-6">
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm transition hover:shadow-md">
+                  <label className="block text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
+                    <i className="fas fa-history text-indigo-500"></i> 1단계: 과거 예약 이력 파일
+                  </label>
+                  <div className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-colors ${historyFile ? 'border-indigo-400 bg-indigo-50' : 'border-slate-300 hover:border-indigo-400'}`}>
                     <input 
-                      type="range" 
-                      min="1" 
-                      max="10" 
-                      value={threshold}
-                      onChange={(e) => setThreshold(parseInt(e.target.value))}
-                      className="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                      type="file" 
+                      accept=".xlsx, .xls"
+                      onChange={(e) => setHistoryFile(e.target.files?.[0] || null)}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
                     />
-                    <span className="w-12 h-10 flex items-center justify-center bg-indigo-600 text-white font-bold rounded-lg shadow-inner">
-                      {threshold}
-                    </span>
+                    <div className="flex flex-col items-center">
+                      <i className={`fas ${historyFile ? 'fa-file-excel text-indigo-600' : 'fa-cloud-upload-alt text-slate-400'} text-4xl mb-3`}></i>
+                      <span className="text-sm font-medium text-slate-600">
+                        {historyFile ? historyFile.name : 'Excel 파일을 드래그하거나 클릭하여 업로드'}
+                      </span>
+                      <p className="text-xs text-slate-400 mt-2">대상: "입실 완료" 명단</p>
+                    </div>
                   </div>
                 </div>
-                <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl">
-                  <p className="text-xs text-blue-700 leading-relaxed">
-                    <i className="fas fa-info-circle mr-1"></i>
-                    <strong>분석 로직:</strong> <br/>
-                    1. 연락처(숫자만 추출)가 일치하는지 먼저 확인합니다. <br/>
-                    2. 이름 중 2글자 이상이 서로 포함되거나 일치하는 경우 최종 매칭됩니다.
-                  </p>
+
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm transition hover:shadow-md">
+                  <label className="block text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
+                    <i className="fas fa-calendar-day text-emerald-500"></i> 2단계: 오늘 예약 명단 파일
+                  </label>
+                  <div className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-colors ${todayFile ? 'border-emerald-400 bg-emerald-50' : 'border-slate-300 hover:border-emerald-400'}`}>
+                    <input 
+                      type="file" 
+                      accept=".xlsx, .xls"
+                      onChange={(e) => setTodayFile(e.target.files?.[0] || null)}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
+                    />
+                    <div className="flex flex-col items-center">
+                      <i className={`fas ${todayFile ? 'fa-file-excel text-emerald-600' : 'fa-cloud-upload-alt text-slate-400'} text-4xl mb-3`}></i>
+                      <span className="text-sm font-medium text-slate-600">
+                        {todayFile ? todayFile.name : 'Excel 파일을 드래그하거나 클릭하여 업로드'}
+                      </span>
+                      <p className="text-xs text-slate-400 mt-2">대상: "예약 대기", "입금 완료" 명단</p>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="mt-8 space-y-4">
-              {error && (
-                <div className="p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm font-medium flex items-center gap-2 animate-pulse">
-                  <i className="fas fa-exclamation-circle"></i>
-                  {error}
+              <div className="flex flex-col justify-between">
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                  <h3 className="text-sm font-bold text-slate-700 mb-6 flex items-center gap-2">
+                    <i className="fas fa-cog text-slate-400"></i> 분석 설정
+                  </h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-600 mb-2">단골 기준 방문 횟수 (N회 이상)</label>
+                      <div className="flex items-center gap-4">
+                        <input 
+                          type="range" 
+                          min="1" 
+                          max="10" 
+                          value={threshold}
+                          onChange={(e) => setThreshold(parseInt(e.target.value))}
+                          className="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                        />
+                        <span className="w-12 h-10 flex items-center justify-center bg-indigo-600 text-white font-bold rounded-lg shadow-inner">
+                          {threshold}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl">
+                      <p className="text-xs text-blue-700 leading-relaxed">
+                        <i className="fas fa-info-circle mr-1"></i>
+                        <strong>분석 로직:</strong> <br/>
+                        1. 연락처(숫자만 추출)가 일치하는지 먼저 확인합니다. <br/>
+                        2. 이름 중 2글자 이상이 서로 포함되거나 일치하는 경우 최종 매칭됩니다.
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              )}
-              
-              <button
-                onClick={handleAnalysis}
-                disabled={isAnalyzing || !historyFile || !todayFile}
-                className={`w-full py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 transition-all transform active:scale-95 ${
-                  isAnalyzing || !historyFile || !todayFile 
-                  ? 'bg-slate-300 text-slate-500 cursor-not-allowed' 
-                  : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-200'
-                }`}
-              >
-                {isAnalyzing ? (
-                  <>
-                    <i className="fas fa-spinner fa-spin"></i> 분석 중...
-                  </>
-                ) : (
-                  <>
-                    <i className="fas fa-bolt"></i> 분석 시작하기
-                  </>
-                )}
-              </button>
 
-              <button
-                onClick={reset}
-                className="w-full py-3 rounded-xl font-medium text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition"
-              >
-                초기화
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Results Area */}
-        {results !== null && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden mb-12">
-              <div className="bg-slate-800 p-6 flex items-center justify-between">
-                <h3 className="text-white font-bold text-xl flex items-center gap-3">
-                  <i className="fas fa-list-check text-emerald-400"></i> 
-                  오늘 방문한 단골 고객 리스트
-                  <span className="ml-2 text-sm font-normal text-slate-400">({results.length}명 검색됨)</span>
-                </h3>
-                <span className="text-xs text-slate-400 font-medium bg-slate-700 px-3 py-1 rounded-full">
-                  고객 클릭 시 예약 상세 정보 표시
-                </span>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200">
-                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">고객명</th>
-                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">연락처</th>
-                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">현재 상태</th>
-                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">총 방문 횟수</th>
-                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">구분</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {results.length > 0 ? (
-                      results.map((item, idx) => (
-                        <tr 
-                          key={idx} 
-                          onClick={() => setSelectedCustomer(item)}
-                          className="hover:bg-indigo-50 cursor-pointer transition-colors"
-                        >
-                          <td className="px-6 py-4 font-bold text-slate-800 underline decoration-indigo-200 decoration-2 underline-offset-4">{item.customerName}</td>
-                          <td className="px-6 py-4 text-slate-600 font-mono text-sm">{item.contact}</td>
-                          <td className="px-6 py-4">
-                            <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
-                              item.todayStatus.includes('입금') 
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
-                              : 'bg-amber-50 text-amber-700 border-amber-200'
-                            }`}>
-                              {item.todayStatus}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-center">
-                            <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-bold">
-                              {item.totalVisits}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            {item.totalVisits >= 5 ? (
-                              <span className="bg-rose-500 text-white text-[10px] font-black px-2 py-0.5 rounded shadow-sm">VVIP</span>
-                            ) : (
-                              <span className="bg-indigo-500 text-white text-[10px] font-black px-2 py-0.5 rounded shadow-sm">단골</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))
+                <div className="mt-8 space-y-4">
+                  {error && (
+                    <div className="p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm font-medium flex items-center gap-2 animate-pulse">
+                      <i className="fas fa-exclamation-circle"></i>
+                      {error}
+                    </div>
+                  )}
+                  
+                  <button
+                    onClick={handleAnalysis}
+                    disabled={isAnalyzing || !historyFile || !todayFile}
+                    className={`w-full py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 transition-all transform active:scale-95 ${
+                      isAnalyzing || !historyFile || !todayFile 
+                      ? 'bg-slate-300 text-slate-500 cursor-not-allowed' 
+                      : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-200'
+                    }`}
+                  >
+                    {isAnalyzing ? (
+                      <>
+                        <i className="fas fa-spinner fa-spin"></i> 분석 중...
+                      </>
                     ) : (
-                      <tr>
-                        <td colSpan={5} className="px-6 py-20 text-center">
-                          <div className="flex flex-col items-center">
-                            <i className="fas fa-search text-slate-200 text-5xl mb-4"></i>
-                            <p className="text-slate-400 font-medium text-lg">단골 고객 매칭 결과가 없습니다.</p>
-                            <p className="text-slate-400 text-sm mt-1">기준 횟수를 낮추거나 데이터 파일을 다시 확인해주세요.</p>
-                          </div>
-                        </td>
-                      </tr>
+                      <>
+                        <i className="fas fa-bolt"></i> 분석 시작하기
+                      </>
                     )}
-                  </tbody>
-                </table>
+                  </button>
+
+                  <button
+                    onClick={reset}
+                    className="w-full py-3 rounded-xl font-medium text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition"
+                  >
+                    초기화
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
+
+            {/* Results Area */}
+            {results !== null && (
+              <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden mb-12">
+                  <div className="bg-slate-800 p-6 flex items-center justify-between">
+                    <h3 className="text-white font-bold text-xl flex items-center gap-3">
+                      <i className="fas fa-list-check text-emerald-400"></i> 
+                      오늘 방문한 단골 고객 리스트
+                      <span className="ml-2 text-sm font-normal text-slate-400">({results.length}명 검색됨)</span>
+                    </h3>
+                    <span className="text-xs text-slate-400 font-medium bg-slate-700 px-3 py-1 rounded-full">
+                      고객 클릭 시 예약 상세 정보 표시
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-200">
+                          <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">고객명</th>
+                          <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">연락처</th>
+                          <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">현재 상태</th>
+                          <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">총 방문 횟수</th>
+                          <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">구분</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {results.length > 0 ? (
+                          results.map((item, idx) => (
+                            <tr 
+                              key={idx} 
+                              onClick={() => setSelectedCustomer(item)}
+                              className="hover:bg-indigo-50 cursor-pointer transition-colors"
+                            >
+                              <td className="px-6 py-4 font-bold text-slate-800 underline decoration-indigo-200 decoration-2 underline-offset-4">{item.customerName}</td>
+                              <td className="px-6 py-4 text-slate-600 font-mono text-sm">{item.contact}</td>
+                              <td className="px-6 py-4">
+                                <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
+                                  item.todayStatus.includes('입금') 
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                                  : 'bg-amber-50 text-amber-700 border-amber-200'
+                                }`}>
+                                  {item.todayStatus}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-center">
+                                <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-bold">
+                                  {item.totalVisits}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                {item.totalVisits >= 5 ? (
+                                  <span className="bg-rose-500 text-white text-[10px] font-black px-2 py-0.5 rounded shadow-sm">VVIP</span>
+                                ) : (
+                                  <span className="bg-indigo-500 text-white text-[10px] font-black px-2 py-0.5 rounded shadow-sm">단골</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={5} className="px-6 py-20 text-center">
+                              <div className="flex flex-col items-center">
+                                <i className="fas fa-search text-slate-200 text-5xl mb-4"></i>
+                                <p className="text-slate-400 font-medium text-lg">단골 고객 매칭 결과가 없습니다.</p>
+                                <p className="text-slate-400 text-sm mt-1">기준 횟수를 낮추거나 데이터 파일을 다시 확인해주세요.</p>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {/* Detail Modal */}
