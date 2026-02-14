@@ -41,26 +41,24 @@ export const formatDate = (val: any): string => {
 };
 
 /**
- * Checks if two names have at least 2 characters in common
+ * Checks if two names are likely the same person based on strict subset rules.
+ * "김민수" vs "민수" -> Match
+ * "김민수" vs "김민수(본인)" -> Match
+ * "김민수" vs "김민지" -> No Match (even if they share '김', '민')
  */
 export const hasNameOverlap = (name1: string, name2: string): boolean => {
   if (!name1 || !name2) return false;
-  const n1 = name1.trim();
-  const n2 = name2.trim();
   
-  // Basic check for subset
-  if (n1.includes(n2) || n2.includes(n1)) {
-    return n1.length >= 2 && n2.length >= 2;
-  }
-
-  // Count common characters (simple overlap logic)
-  let commonCount = 0;
-  const chars1 = new Set(n1.split(''));
-  for (const char of n2) {
-    if (chars1.has(char)) commonCount++;
-  }
+  // Clean names: remove all special characters and spaces, keep only alphanumeric and Korean characters
+  const clean = (s: string) => s.replace(/[^a-zA-Z0-9가-힣]/g, '').trim();
+  const n1 = clean(name1);
+  const n2 = clean(name2);
   
-  return commonCount >= 2;
+  // Requirement: Name must be at least 2 characters to be matched
+  if (n1.length < 2 || n2.length < 2) return false;
+  
+  // Core logic: one name must be contained within the other
+  return n1.includes(n2) || n2.includes(n1);
 };
 
 /**
@@ -107,7 +105,6 @@ export const parseExcel = (file: File): Promise<any[]> => {
         const workbook = XLSX.read(data, { type: 'array', cellDates: true });
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
-        // We use cellDates: true to handle Excel dates correctly
         const json = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
         resolve(json);
       } catch (err) {
@@ -135,8 +132,8 @@ export const analyzeLoyalty = (
   const historyMap = detectMapping(historyHeaders);
   const todayMap = detectMapping(todayHeaders);
 
-  // 1. Process History
-  const visits: Record<string, { name: string; count: number; history: { checkIn: string; checkOut: string; roomName: string }[] }> = {};
+  // Grouping history by contact, then partitioning into specific "person clusters"
+  const visits: Record<string, { name: string; count: number; history: { checkIn: string; checkOut: string; roomName: string }[] }[]> = {};
   
   historyData.forEach(row => {
     const status = String(row[historyMap.status] || '');
@@ -144,14 +141,23 @@ export const analyzeLoyalty = (
     
     if (isCompleted) {
       const contact = normalizeContact(row[historyMap.contact]);
-      const name = String(row[historyMap.name] || '');
+      const name = String(row[historyMap.name] || '').trim();
       
-      if (contact) {
+      if (contact && name) {
         if (!visits[contact]) {
-          visits[contact] = { name, count: 0, history: [] };
+          visits[contact] = [];
         }
-        visits[contact].count += 1;
-        visits[contact].history.push({
+        
+        // Find if this history record matches an existing person group for this phone number
+        let person = visits[contact].find(p => hasNameOverlap(p.name, name));
+        
+        if (!person) {
+          person = { name, count: 0, history: [] };
+          visits[contact].push(person);
+        }
+        
+        person.count += 1;
+        person.history.push({
           checkIn: formatDate(row[historyMap.checkIn]),
           checkOut: formatDate(row[historyMap.checkOut]),
           roomName: historyMap.roomName ? String(row[historyMap.roomName] || '-') : '-'
@@ -160,15 +166,7 @@ export const analyzeLoyalty = (
     }
   });
 
-  // Filter Loyal Customers (threshold N)
-  const loyalCustomers: Record<string, { name: string; count: number; history: { checkIn: string; checkOut: string; roomName: string }[] }> = {};
-  Object.entries(visits).forEach(([contact, data]) => {
-    if (data.count >= threshold) {
-      loyalCustomers[contact] = data;
-    }
-  });
-
-  // 2. Process Today
+  // Today processing
   const results: MatchResult[] = [];
   todayData.forEach(row => {
     const status = String(row[todayMap.status] || '');
@@ -177,22 +175,22 @@ export const analyzeLoyalty = (
     
     if (isTarget) {
       const contact = normalizeContact(row[todayMap.contact]);
-      const name = String(row[todayMap.name] || '');
+      const name = String(row[todayMap.name] || '').trim();
       
-      // Match by contact
-      if (contact && loyalCustomers[contact]) {
-        const loyalInfo = loyalCustomers[contact];
-        // Secondary check: Name overlap (at least 2 chars)
-        if (hasNameOverlap(name, loyalInfo.name)) {
+      if (contact && name && visits[contact]) {
+        // Look for the specific person group that matches today's name under this contact
+        const person = visits[contact].find(p => hasNameOverlap(p.name, name));
+        
+        if (person && person.count >= threshold) {
           results.push({
             customerName: name,
             contact: row[todayMap.contact],
-            totalVisits: loyalInfo.count,
+            totalVisits: person.count,
             todayStatus: status,
             todayRoomName: todayMap.roomName ? String(row[todayMap.roomName] || '-') : '-',
             checkInDate: formatDate(row[todayMap.checkIn]),
             checkOutDate: formatDate(row[todayMap.checkOut]),
-            history: loyalInfo.history
+            history: person.history
           });
         }
       }

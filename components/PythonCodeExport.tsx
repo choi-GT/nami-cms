@@ -12,6 +12,11 @@ def normalize_contact(contact):
     if pd.isna(contact): return ""
     return re.sub(r'[^0-9]', '', str(contact))
 
+def clean_name(name):
+    """특수문자 제거 및 공백 제거"""
+    if pd.isna(name): return ""
+    return re.sub(r'[^a-zA-Z0-9가-힣]', '', str(name)).strip()
+
 def find_column(df, synonyms):
     """유사 컬럼명 찾기"""
     for col in df.columns:
@@ -21,11 +26,12 @@ def find_column(df, synonyms):
     return None
 
 def has_name_overlap(name1, name2):
-    """이름 두 글자 이상 일치 여부"""
-    if not name1 or not name2: return False
-    n1, n2 = str(name1), str(name2)
-    common = set(n1) & set(n2)
-    return len(common) >= 2
+    """이름 포함 관계 확인 (엄격한 규칙)"""
+    n1, n2 = clean_name(name1), clean_name(name2)
+    if len(n1) < 2 or len(n2) < 2:
+        return False
+    # 한 이름이 다른 이름에 포함되어 있어야 함
+    return (n1 in n2) or (n2 in n1)
 
 def analyze_loyalty(history_path, today_path, threshold=2):
     # 엑셀 로드
@@ -47,37 +53,52 @@ def analyze_loyalty(history_path, today_path, threshold=2):
     t_contact = find_column(df_today, synonyms['contact'])
     t_status = find_column(df_today, synonyms['status'])
 
-    # 1. 과거 이력 분석 (입실 완료)
+    # 1. 과거 이력 분석 (입실 완료 대상)
     complete_status = ['입실 완료', '입실완료']
-    df_complete = df_history[df_history[h_status].astype(str).str.contains('|'.join(complete_status))]
+    df_complete = df_history[df_history[h_status].astype(str).str.contains('|'.join(complete_status))].copy()
+    df_complete['norm_contact'] = df_complete[h_contact].apply(normalize_contact)
+
+    # 연락처별로 그룹화한 뒤, 성함 유사성 클러스터링
+    loyal_groups = {} # contact -> list of {name, count}
     
-    # 방문 횟수 집계
-    df_complete['normalized_contact'] = df_complete[h_contact].apply(normalize_contact)
-    loyalty_counts = df_complete.groupby('normalized_contact').agg({
-        h_name: 'first',
-        'normalized_contact': 'count'
-    }).rename(columns={'normalized_contact': 'visit_count'})
+    for _, row in df_complete.iterrows():
+        contact = row['norm_contact']
+        name = str(row[h_name]).strip()
+        if not contact or not name: continue
+        
+        if contact not in loyal_groups:
+            loyal_groups[contact] = []
+            
+        found = False
+        for person in loyal_groups[contact]:
+            if has_name_overlap(name, person['name']):
+                person['count'] += 1
+                found = True
+                break
+        if not found:
+            loyal_groups[contact].append({'name': name, 'count': 1})
 
-    loyal_customers = loyalty_counts[loyalty_counts['visit_count'] >= threshold]
-
-    # 2. 오늘 예약 분석 (예약 대기, 입금 완료)
+    # 2. 오늘 예약 분석 (예약 대기, 입금 완료 대상)
     today_target_status = ['예약 대기', '예약대기', '입금 완료', '입금완료']
     df_today_target = df_today[df_today[t_status].astype(str).str.contains('|'.join(today_target_status))].copy()
-    df_today_target['normalized_contact'] = df_today_target[t_contact].apply(normalize_contact)
+    df_today_target['norm_contact'] = df_today_target[t_contact].apply(normalize_contact)
 
     # 3. 매칭
     results = []
     for _, row in df_today_target.iterrows():
-        contact = row['normalized_contact']
-        if contact in loyal_customers.index:
-            loyal_info = loyal_customers.loc[contact]
-            if has_name_overlap(row[t_name], loyal_info[h_name]):
-                results.append({
-                    '고객명': row[t_name],
-                    '연락처': row[t_contact],
-                    '총 방문 횟수': loyal_info['visit_count'],
-                    '현재 상태': row[t_status]
-                })
+        contact = row['norm_contact']
+        name = str(row[t_name]).strip()
+        
+        if contact in loyal_groups:
+            for person in loyal_groups[contact]:
+                if has_name_overlap(name, person['name']) and person['count'] >= threshold:
+                    results.append({
+                        '고객명': row[t_name],
+                        '연락처': row[t_contact],
+                        '총 방문 횟수': person['count'],
+                        '현재 상태': row[t_status]
+                    })
+                    break
 
     return pd.DataFrame(results)
 

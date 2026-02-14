@@ -45,6 +45,9 @@ const App: React.FC = () => {
     setSelectedCustomer(null);
   };
 
+  const incrementThreshold = () => setThreshold(prev => Math.min(prev + 1, 10));
+  const decrementThreshold = () => setThreshold(prev => Math.max(prev - 1, 1));
+
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
       {/* Header */}
@@ -145,26 +148,36 @@ const App: React.FC = () => {
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-slate-600 mb-2">단골 기준 방문 횟수 (N회 이상)</label>
-                      <div className="flex items-center gap-4">
-                        <input 
-                          type="range" 
-                          min="1" 
-                          max="10" 
-                          value={threshold}
-                          onChange={(e) => setThreshold(parseInt(e.target.value))}
-                          className="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                        />
-                        <span className="w-12 h-10 flex items-center justify-center bg-indigo-600 text-white font-bold rounded-lg shadow-inner">
+                      <div className="flex items-center justify-between gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={decrementThreshold}
+                            className="w-10 h-10 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 transition shadow-sm active:scale-95"
+                          >
+                            <i className="fas fa-minus"></i>
+                          </button>
+                          <div className="flex-1 min-w-[120px] h-2 bg-slate-200 rounded-full mx-2 relative overflow-hidden">
+                             <div className="absolute top-0 left-0 h-full bg-indigo-600 transition-all duration-300" style={{ width: `${(threshold / 10) * 100}%` }}></div>
+                          </div>
+                          <button 
+                            onClick={incrementThreshold}
+                            className="w-10 h-10 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 transition shadow-sm active:scale-95"
+                          >
+                            <i className="fas fa-plus"></i>
+                          </button>
+                        </div>
+                        <span className="w-10 h-10 flex items-center justify-center bg-indigo-600 text-white font-bold rounded-lg shadow-md shrink-0">
                           {threshold}
                         </span>
                       </div>
                     </div>
-                    <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl">
-                      <p className="text-xs text-blue-700 leading-relaxed">
+                    <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl">
+                      <p className="text-xs text-indigo-700 leading-relaxed font-medium">
                         <i className="fas fa-info-circle mr-1"></i>
-                        <strong>분석 로직:</strong> <br/>
-                        1. 연락처(숫자만 추출)가 일치하는지 먼저 확인합니다. <br/>
-                        2. 이름 중 2글자 이상이 서로 포함되거나 일치하는 경우 최종 매칭됩니다.
+                        <strong>동일인 판별 로직:</strong> <br/>
+                        1. 연락처가 일치하는지 먼저 확인합니다. <br/>
+                        2. 연락처가 같더라도 이름이 서로 포함 관계(예: 김민수 ↔ 민수)이고 2글자 이상 일치해야 동일인으로 카운팅됩니다. <br/>
+                        3. 성씨만 같고 이름이 다른 경우(예: 김민수 ↔ 김민지)는 다른 사람으로 취급됩니다.
                       </p>
                     </div>
                   </div>
